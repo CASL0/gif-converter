@@ -1,0 +1,36 @@
+{
+  "name": "gif-converter",
+  "build": { "dockerfile": "Dockerfile", "context": ".." },
+  "containerEnv": {
+    "VCPKG_ROOT": "/usr/local/vcpkg"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "cmake.configureSettings": {
+          "CMAKE_TOOLCHAIN_FILE": "/usr/local/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        },
+        "cmake.generator": "Ninja",
+        "cmake.buildDirectory": "${workspaceFolder}/build",
+        "cmake.configureOnOpen": true,
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "C_Cpp.clang_format_fallbackStyle": "Google",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "[cpp]": {
+          "editor.formatOnSave": true,
+          "editor.defaultFormatter": "xaver.clang-format"
+        }
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "xaver.clang-format",
+        "ms-vscode.cpptools-extension-pack",
+        "Anthropic.claude-code"
+      ]
+    }
+  },
+  "postCreateCommand": "vcpkg install && cmake --preset debug",
+  "remoteUser": "vscode"
+}
