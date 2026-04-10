@@ -1,0 +1,20 @@
+# Build
+build/
+out/
+
+# vcpkg
+vcpkg_installed/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compile commands
+compile_commands.json
+
+# OS
+.DS_Store
+Thumbs.db
