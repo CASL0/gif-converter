@@ -1,5 +1,6 @@
 add_executable(gif-converter
     main.cpp
+    logger.cpp
     controllers/health_controller.cpp
 )
 
@@ -12,4 +13,5 @@ target_compile_options(gif-converter PRIVATE
 target_link_libraries(gif-converter PRIVATE
     Drogon::Drogon
     PkgConfig::LIBAV
+    quill::quill
 )

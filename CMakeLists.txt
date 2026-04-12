@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BUILD_TESTING "Build tests" ON)
 
 find_package(Drogon CONFIG REQUIRED)
+find_package(quill CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libavcodec libavformat libswscale libavutil)
