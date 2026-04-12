@@ -1,6 +1,10 @@
 {
   "name": "gif-converter",
   "build": { "dockerfile": "Dockerfile", "context": ".." },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
   "containerEnv": {
     "VCPKG_ROOT": "/usr/local/vcpkg"
   },
