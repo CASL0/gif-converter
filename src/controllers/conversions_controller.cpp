@@ -1,9 +1,11 @@
 #include "conversions_controller.h"
 
+#include <drogon/MultiPart.h>
 #include <drogon/utils/Utilities.h>
 
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <sstream>
 
@@ -57,40 +59,75 @@ Json::Value JobToJson(const ConversionJob& job) {
     return json;
 }
 
+constexpr size_t kMaxUploadSize = 500 * 1024 * 1024; /**< 500MB */
+const std::string kUploadDir = "/tmp/gif-converter/uploads";
+
+/** RFC 9457 形式のエラーレスポンスを生成する。 */
+drogon::HttpResponsePtr MakeErrorResponse(drogon::HttpStatusCode status_code,
+                                          const std::string& type, const std::string& title,
+                                          const std::string& detail,
+                                          const std::string& instance = "") {
+    Json::Value error;
+    error["type"] = type;
+    error["title"] = title;
+    error["status"] = static_cast<int>(status_code);
+    error["detail"] = detail;
+    if (!instance.empty()) {
+        error["instance"] = instance;
+    }
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
+    resp->setStatusCode(status_code);
+    return resp;
+}
+
 }  // namespace
 
 void ConversionsController::Create(const drogon::HttpRequestPtr& req,
                                    std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
-    auto json = req->getJsonObject();
-    if (!json) {
-        Json::Value error;
-        error["type"] = "validation_error";
-        error["title"] = "Invalid request body";
-        error["status"] = 400;
-        error["detail"] = "Request body must be valid JSON.";
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-        resp->setStatusCode(drogon::k400BadRequest);
-        resp->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-        callback(resp);
+    drogon::MultiPartParser parser;
+    if (parser.parse(req) != 0) {
+        callback(MakeErrorResponse(drogon::k400BadRequest, "validation_error",
+                                   "Invalid request body", "Request must be multipart/form-data.",
+                                   "/api/v1/conversions"));
+        return;
+    }
+
+    auto files_map = parser.getFilesMap();
+    auto file_it = files_map.find("file");
+    if (file_it == files_map.end()) {
+        callback(MakeErrorResponse(drogon::k400BadRequest, "validation_error", "Missing file",
+                                   "A 'file' field is required.", "/api/v1/conversions"));
+        return;
+    }
+
+    auto& file = file_it->second;
+    if (file.fileLength() > kMaxUploadSize) {
+        callback(MakeErrorResponse(drogon::k413RequestEntityTooLarge, "file_too_large",
+                                   "File too large", "Upload size must not exceed 500MB.",
+                                   "/api/v1/conversions"));
         return;
     }
 
     ConversionOptions options;
-    if (json->isMember("options")) {
-        auto& opts = (*json)["options"];
-        if (opts.isMember("width")) {
-            options.width = opts["width"].asInt();
-        }
-        if (opts.isMember("fps")) {
-            options.fps = opts["fps"].asInt();
-        }
+    auto& params = parser.getParameters();
+    if (auto it = params.find("width"); it != params.end()) {
+        options.width = std::stoi(it->second);
+    }
+    if (auto it = params.find("fps"); it != params.end()) {
+        options.fps = std::stoi(it->second);
     }
 
     auto id = drogon::utils::getUuid();
+    std::filesystem::create_directories(kUploadDir);
+    auto save_path = std::filesystem::path(kUploadDir) /
+                     (id + std::filesystem::path(file.getFileName()).extension().string());
+    file.saveAs(save_path.string());
+
     ConversionJob job{
         .id = id,
         .status = ConversionStatus::Pending,
-        .input_file_name = json->get("inputFileName", "").asString(),
+        .input_file_name = file.getFileName(),
+        .input_file_path = save_path.string(),
         .options = options,
         .progress = 0,
         .error_message = std::nullopt,
@@ -151,15 +188,9 @@ void ConversionsController::GetOne(const drogon::HttpRequestPtr& /*req*/,
     auto job = ctx->GetConversionRepository().Find(id);
 
     if (!job) {
-        Json::Value error;
-        error["type"] = "not_found";
-        error["title"] = "Conversion not found";
-        error["status"] = 404;
-        error["detail"] = "No conversion job with ID '" + id + "' exists.";
-        error["instance"] = "/api/v1/conversions/" + id;
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-        resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        callback(MakeErrorResponse(drogon::k404NotFound, "not_found", "Conversion not found",
+                                   "No conversion job with ID '" + id + "' exists.",
+                                   "/api/v1/conversions/" + id));
         return;
     }
 
@@ -175,15 +206,9 @@ void ConversionsController::Delete(const drogon::HttpRequestPtr& /*req*/,
     auto removed = ctx->GetConversionRepository().Remove(id);
 
     if (!removed) {
-        Json::Value error;
-        error["type"] = "not_found";
-        error["title"] = "Conversion not found";
-        error["status"] = 404;
-        error["detail"] = "No conversion job with ID '" + id + "' exists.";
-        error["instance"] = "/api/v1/conversions/" + id;
-        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
-        resp->setStatusCode(drogon::k404NotFound);
-        callback(resp);
+        callback(MakeErrorResponse(drogon::k404NotFound, "not_found", "Conversion not found",
+                                   "No conversion job with ID '" + id + "' exists.",
+                                   "/api/v1/conversions/" + id));
         return;
     }
 

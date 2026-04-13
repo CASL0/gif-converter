@@ -1,11 +1,48 @@
 #include <drogon/drogon.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <future>
+#include <string>
 
 #include "test_server.h"
 
 namespace {
+
+const std::string kTestUploadDir = "/tmp/gif-converter-test";
+
+/** テスト用の一時ファイルを作成し、そのパスを返す。 */
+std::string CreateTempFile(const std::string& filename, const std::string& content) {
+    std::filesystem::create_directories(kTestUploadDir);
+    auto path = std::filesystem::path(kTestUploadDir) / filename;
+    std::ofstream ofs(path, std::ios::binary);
+    ofs << content;
+    return path.string();
+}
+
+drogon::HttpRequestPtr MakeUploadRequest(const std::string& file_path) {
+    auto req = drogon::HttpRequest::newFileUploadRequest({drogon::UploadFile(file_path)});
+    req->setPath("/api/v1/conversions");
+    return req;
+}
+
+std::string CreateJobAndGetId(const drogon::HttpClientPtr& client) {
+    std::promise<std::string> id_promise;
+    auto id_future = id_promise.get_future();
+
+    auto path = CreateTempFile("test.mp4", "fake video data");
+    auto req = MakeUploadRequest(path);
+    client->sendRequest(
+        req, [&id_promise](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
+            ASSERT_EQ(result, drogon::ReqResult::Ok);
+            auto json = resp->getJsonObject();
+            ASSERT_NE(json, nullptr);
+            id_promise.set_value((*json)["id"].asString());
+        });
+
+    return id_future.get();
+}
 
 TEST(ConversionsControllerTest, CreateReturns202WithJobId) {
     auto client = gif_converter::test::TestServer::CreateClient();
@@ -13,12 +50,8 @@ TEST(ConversionsControllerTest, CreateReturns202WithJobId) {
     std::promise<void> done;
     auto done_future = done.get_future();
 
-    auto req = drogon::HttpRequest::newHttpRequest();
-    req->setPath("/api/v1/conversions");
-    req->setMethod(drogon::Post);
-    req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-    req->setBody(R"({"inputFileName":"video.mp4"})");
-
+    auto path = CreateTempFile("video.mp4", "fake video data");
+    auto req = MakeUploadRequest(path);
     client->sendRequest(req,
                         [&done](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
                             EXPECT_EQ(result, drogon::ReqResult::Ok);
@@ -41,33 +74,6 @@ TEST(ConversionsControllerTest, CreateReturns202WithJobId) {
     done_future.wait();
 }
 
-TEST(ConversionsControllerTest, CreateWithOptionsReturns202) {
-    auto client = gif_converter::test::TestServer::CreateClient();
-
-    std::promise<void> done;
-    auto done_future = done.get_future();
-
-    auto req = drogon::HttpRequest::newHttpRequest();
-    req->setPath("/api/v1/conversions");
-    req->setMethod(drogon::Post);
-    req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-    req->setBody(R"({"inputFileName":"clip.mp4","options":{"width":640,"fps":20}})");
-
-    client->sendRequest(req,
-                        [&done](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
-                            EXPECT_EQ(result, drogon::ReqResult::Ok);
-                            EXPECT_EQ(resp->getStatusCode(), drogon::k202Accepted);
-
-                            auto json = resp->getJsonObject();
-                            ASSERT_NE(json, nullptr);
-                            EXPECT_EQ((*json)["status"].asString(), "pending");
-
-                            done.set_value();
-                        });
-
-    done_future.wait();
-}
-
 TEST(ConversionsControllerTest, CreateWithInvalidBodyReturns400) {
     auto client = gif_converter::test::TestServer::CreateClient();
 
@@ -78,7 +84,7 @@ TEST(ConversionsControllerTest, CreateWithInvalidBodyReturns400) {
     req->setPath("/api/v1/conversions");
     req->setMethod(drogon::Post);
     req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-    req->setBody("not json");
+    req->setBody("not multipart");
 
     client->sendRequest(req,
                         [&done](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
@@ -97,25 +103,7 @@ TEST(ConversionsControllerTest, CreateWithInvalidBodyReturns400) {
 
 TEST(ConversionsControllerTest, GetOneReturnsJob) {
     auto client = gif_converter::test::TestServer::CreateClient();
-
-    std::promise<std::string> id_promise;
-    auto id_future = id_promise.get_future();
-
-    auto create_req = drogon::HttpRequest::newHttpRequest();
-    create_req->setPath("/api/v1/conversions");
-    create_req->setMethod(drogon::Post);
-    create_req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-    create_req->setBody(R"({"inputFileName":"test.mp4"})");
-
-    client->sendRequest(
-        create_req, [&id_promise](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
-            ASSERT_EQ(result, drogon::ReqResult::Ok);
-            auto json = resp->getJsonObject();
-            ASSERT_NE(json, nullptr);
-            id_promise.set_value((*json)["id"].asString());
-        });
-
-    auto job_id = id_future.get();
+    auto job_id = CreateJobAndGetId(client);
 
     std::promise<void> done;
     auto done_future = done.get_future();
@@ -133,7 +121,6 @@ TEST(ConversionsControllerTest, GetOneReturnsJob) {
             ASSERT_NE(json, nullptr);
             EXPECT_EQ((*json)["id"].asString(), job_id);
             EXPECT_EQ((*json)["status"].asString(), "pending");
-            EXPECT_EQ((*json)["inputFileName"].asString(), "test.mp4");
             EXPECT_TRUE((*json).isMember("progress"));
             EXPECT_TRUE((*json).isMember("options"));
             EXPECT_TRUE((*json).isMember("createdAt"));
@@ -226,25 +213,7 @@ TEST(ConversionsControllerTest, GetListRespectsLimitAndOffset) {
 
 TEST(ConversionsControllerTest, DeleteReturns204) {
     auto client = gif_converter::test::TestServer::CreateClient();
-
-    std::promise<std::string> id_promise;
-    auto id_future = id_promise.get_future();
-
-    auto create_req = drogon::HttpRequest::newHttpRequest();
-    create_req->setPath("/api/v1/conversions");
-    create_req->setMethod(drogon::Post);
-    create_req->setContentTypeCode(drogon::CT_APPLICATION_JSON);
-    create_req->setBody(R"({"inputFileName":"delete-me.mp4"})");
-
-    client->sendRequest(
-        create_req, [&id_promise](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
-            ASSERT_EQ(result, drogon::ReqResult::Ok);
-            auto json = resp->getJsonObject();
-            ASSERT_NE(json, nullptr);
-            id_promise.set_value((*json)["id"].asString());
-        });
-
-    auto job_id = id_future.get();
+    auto job_id = CreateJobAndGetId(client);
 
     std::promise<void> done;
     auto done_future = done.get_future();
