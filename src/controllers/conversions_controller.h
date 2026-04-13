@@ -9,11 +9,17 @@ class ConversionsController : public drogon::HttpController<ConversionsControlle
    public:
     METHOD_LIST_BEGIN
     ADD_METHOD_TO(ConversionsController::Create, "/api/v1/conversions", drogon::Post);
+    ADD_METHOD_TO(ConversionsController::GetOne, "/api/v1/conversions/{id}", drogon::Get);
     METHOD_LIST_END
 
     /** 新しい変換ジョブを作成する (POST /api/v1/conversions)。 */
     void Create(const drogon::HttpRequestPtr& req,
                 std::function<void(const drogon::HttpResponsePtr&)>&& callback);
+
+    /** 指定 ID の変換ジョブを取得する (GET /api/v1/conversions/{id})。 */
+    void GetOne(const drogon::HttpRequestPtr& req,
+                std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+                const std::string& id);
 };
 
 }  // namespace gif_converter

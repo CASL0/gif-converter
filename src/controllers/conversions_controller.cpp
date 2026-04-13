@@ -11,6 +11,54 @@
 
 namespace gif_converter {
 
+namespace {
+
+/** system_clock::time_point を ISO 8601 形式 (UTC) の文字列に変換する。 */
+std::string FormatIso8601(std::chrono::system_clock::time_point tp) {
+    auto time_t = std::chrono::system_clock::to_time_t(tp);
+    std::ostringstream oss;
+    oss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%SZ");
+    return oss.str();
+}
+
+/** ConversionStatus を JSON レスポンス用の文字列に変換する。 */
+std::string StatusToString(ConversionStatus status) {
+    switch (status) {
+        case ConversionStatus::Pending:
+            return "pending";
+        case ConversionStatus::Processing:
+            return "processing";
+        case ConversionStatus::Completed:
+            return "completed";
+        case ConversionStatus::Failed:
+            return "failed";
+    }
+    return "unknown";
+}
+
+/** ConversionJob を JSON レスポンス用の Json::Value に変換する。 */
+Json::Value JobToJson(const ConversionJob& job) {
+    Json::Value json;
+    json["id"] = job.id;
+    json["status"] = StatusToString(job.status);
+    json["inputFileName"] = job.input_file_name;
+    json["progress"] = job.progress;
+    json["options"]["width"] = job.options.width;
+    json["options"]["fps"] = job.options.fps;
+    json["createdAt"] = FormatIso8601(job.created_at);
+    if (job.completed_at) {
+        json["completedAt"] = FormatIso8601(*job.completed_at);
+    } else {
+        json["completedAt"] = Json::nullValue;
+    }
+    if (job.error_message) {
+        json["errorMessage"] = *job.error_message;
+    }
+    return json;
+}
+
+}  // namespace
+
 void ConversionsController::Create(const drogon::HttpRequestPtr& req,
                                    std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
     auto json = req->getJsonObject();
@@ -53,18 +101,33 @@ void ConversionsController::Create(const drogon::HttpRequestPtr& req,
     auto* ctx = drogon::app().getPlugin<AppContext>();
     ctx->GetConversionRepository().Add(job);
 
-    Json::Value body;
-    body["id"] = job.id;
-    body["status"] = "pending";
-    body["inputFileName"] = job.input_file_name;
-    auto time_t = std::chrono::system_clock::to_time_t(job.created_at);
-    std::ostringstream oss;
-    oss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%SZ");
-    body["createdAt"] = oss.str();
-
-    auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(JobToJson(job));
     resp->setStatusCode(drogon::k202Accepted);
     resp->addHeader("Location", "/api/v1/conversions/" + job.id);
+    callback(resp);
+}
+
+void ConversionsController::GetOne(const drogon::HttpRequestPtr& /*req*/,
+                                   std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+                                   const std::string& id) {
+    auto* ctx = drogon::app().getPlugin<AppContext>();
+    auto job = ctx->GetConversionRepository().Find(id);
+
+    if (!job) {
+        Json::Value error;
+        error["type"] = "not_found";
+        error["title"] = "Conversion not found";
+        error["status"] = 404;
+        error["detail"] = "No conversion job with ID '" + id + "' exists.";
+        error["instance"] = "/api/v1/conversions/" + id;
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
+        resp->setStatusCode(drogon::k404NotFound);
+        callback(resp);
+        return;
+    }
+
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(JobToJson(*job));
+    resp->setStatusCode(drogon::k200OK);
     callback(resp);
 }
 
