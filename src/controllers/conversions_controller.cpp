@@ -168,4 +168,28 @@ void ConversionsController::GetOne(const drogon::HttpRequestPtr& /*req*/,
     callback(resp);
 }
 
+void ConversionsController::Delete(const drogon::HttpRequestPtr& /*req*/,
+                                   std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+                                   const std::string& id) {
+    auto* ctx = drogon::app().getPlugin<AppContext>();
+    auto removed = ctx->GetConversionRepository().Remove(id);
+
+    if (!removed) {
+        Json::Value error;
+        error["type"] = "not_found";
+        error["title"] = "Conversion not found";
+        error["status"] = 404;
+        error["detail"] = "No conversion job with ID '" + id + "' exists.";
+        error["instance"] = "/api/v1/conversions/" + id;
+        auto resp = drogon::HttpResponse::newHttpJsonResponse(error);
+        resp->setStatusCode(drogon::k404NotFound);
+        callback(resp);
+        return;
+    }
+
+    auto resp = drogon::HttpResponse::newHttpResponse();
+    resp->setStatusCode(drogon::k204NoContent);
+    callback(resp);
+}
+
 }  // namespace gif_converter
