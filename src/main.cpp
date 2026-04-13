@@ -20,6 +20,8 @@ int main() {
         },
         []() {});
 
+    drogon::app().addPlugin("gif_converter::AppContext", {}, {});
+
     drogon::app()
         .setLogLevel(trantor::Logger::kInfo)
         .addListener("0.0.0.0", 8080)
