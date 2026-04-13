@@ -1,6 +1,8 @@
 add_executable(gif-converter-tests
     health_controller_test.cpp
+    in_memory_conversion_repository_test.cpp
     ../src/controllers/health_controller.cpp
+    ../src/repositories/in_memory_conversion_repository.cpp
 )
 
 target_compile_features(gif-converter-tests PRIVATE cxx_std_20)
