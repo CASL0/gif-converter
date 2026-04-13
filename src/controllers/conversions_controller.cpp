@@ -107,6 +107,43 @@ void ConversionsController::Create(const drogon::HttpRequestPtr& req,
     callback(resp);
 }
 
+void ConversionsController::GetList(
+    const drogon::HttpRequestPtr& req,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+    constexpr int kDefaultLimit = 20;
+    constexpr int kMaxLimit = 100;
+
+    int limit = kDefaultLimit;
+    int offset = 0;
+
+    if (!req->getParameter("limit").empty()) {
+        limit = std::min(std::stoi(req->getParameter("limit")), kMaxLimit);
+    }
+    if (!req->getParameter("offset").empty()) {
+        offset = std::stoi(req->getParameter("offset"));
+    }
+
+    auto* ctx = drogon::app().getPlugin<AppContext>();
+    auto& repo = ctx->GetConversionRepository();
+    auto jobs = repo.List(limit, offset);
+    auto total_count = repo.Count();
+
+    Json::Value items(Json::arrayValue);
+    for (const auto& job : jobs) {
+        items.append(JobToJson(job));
+    }
+
+    Json::Value body;
+    body["items"] = items;
+    body["totalCount"] = total_count;
+    body["limit"] = limit;
+    body["offset"] = offset;
+
+    auto resp = drogon::HttpResponse::newHttpJsonResponse(body);
+    resp->setStatusCode(drogon::k200OK);
+    callback(resp);
+}
+
 void ConversionsController::GetOne(const drogon::HttpRequestPtr& /*req*/,
                                    std::function<void(const drogon::HttpResponsePtr&)>&& callback,
                                    const std::string& id) {
