@@ -1,0 +1,56 @@
+---
+name: Bug Report
+description: Report a bug.
+labels: bug
+body:
+  - type: textarea
+    attributes:
+      label: Summary
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: How can we reproduce it?
+      description: Include curl commands, request/response examples, or steps if possible.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Server version
+      placeholder: "e.g. 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: OS
+      placeholder: "e.g. Ubuntu 24.04, Docker (Ubuntu 24.04)"
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Logs and errors
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Anything else we need to know
+    validations:
+      required: false
