@@ -1,5 +1,6 @@
 # Build
 build/
+build-coverage/
 out/
 
 # vcpkg
@@ -18,3 +19,8 @@ compile_commands.json
 # OS
 .DS_Store
 Thumbs.db
+
+uploads/
+
+# Doxygen
+docs/doxygen/
