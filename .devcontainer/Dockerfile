@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     automake \
     libtool \
     nasm \
+    doxygen \
+    graphviz \
     && rm -rf /var/lib/apt/lists/*
 
 COPY vcpkg.json /tmp/vcpkg.json
