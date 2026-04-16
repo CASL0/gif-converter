@@ -9,7 +9,7 @@ add_executable(gif-converter-tests
     ../src/repositories/in_memory_conversion_repository.cpp
 )
 
-target_compile_features(gif-converter-tests PRIVATE cxx_std_20)
+target_compile_features(gif-converter-tests PRIVATE cxx_std_23)
 
 target_include_directories(gif-converter-tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src

@@ -5,9 +5,10 @@ add_executable(gif-converter
     controllers/conversions_controller.cpp
     plugins/app_context.cpp
     repositories/in_memory_conversion_repository.cpp
+    services/gif_converter_service.cpp
 )
 
-target_compile_features(gif-converter PRIVATE cxx_std_20)
+target_compile_features(gif-converter PRIVATE cxx_std_23)
 
 target_include_directories(gif-converter PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
