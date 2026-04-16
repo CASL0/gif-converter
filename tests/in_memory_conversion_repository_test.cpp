@@ -11,6 +11,8 @@ gif_converter::ConversionJob MakeJob(const std::string& id) {
         .id = id,
         .status = gif_converter::ConversionStatus::Pending,
         .input_file_name = "video.mp4",
+        .input_file_path = {},
+        .output_file_path = {},
         .options = {.width = 320, .fps = 10},
         .progress = 0,
         .error_message = std::nullopt,

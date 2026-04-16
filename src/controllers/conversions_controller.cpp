@@ -128,6 +128,7 @@ void ConversionsController::Create(const drogon::HttpRequestPtr& req,
         .status = ConversionStatus::Pending,
         .input_file_name = file.getFileName(),
         .input_file_path = save_path.string(),
+        .output_file_path = {},
         .options = options,
         .progress = 0,
         .error_message = std::nullopt,
@@ -214,6 +215,40 @@ void ConversionsController::Delete(const drogon::HttpRequestPtr& /*req*/,
 
     auto resp = drogon::HttpResponse::newHttpResponse();
     resp->setStatusCode(drogon::k204NoContent);
+    callback(resp);
+}
+
+void ConversionsController::GetResult(
+    const drogon::HttpRequestPtr& /*req*/,
+    std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string& id) {
+    auto* ctx = drogon::app().getPlugin<AppContext>();
+    auto job = ctx->GetConversionRepository().Find(id);
+
+    if (!job) {
+        callback(MakeErrorResponse(drogon::k404NotFound, "not_found", "Conversion not found",
+                                   "No conversion job with ID '" + id + "' exists.",
+                                   "/api/v1/conversions/" + id + "/result"));
+        return;
+    }
+
+    if (job->status != ConversionStatus::Completed) {
+        callback(
+            MakeErrorResponse(drogon::k409Conflict, "not_ready", "Conversion not completed",
+                              "The conversion job is still " + StatusToString(job->status) + ".",
+                              "/api/v1/conversions/" + id + "/result"));
+        return;
+    }
+
+    if (!std::filesystem::exists(job->output_file_path)) {
+        callback(MakeErrorResponse(drogon::k500InternalServerError, "internal_error",
+                                   "Result file missing",
+                                   "The conversion result file could not be found."));
+        return;
+    }
+
+    auto resp = drogon::HttpResponse::newFileResponse(job->output_file_path, "", drogon::CT_NONE);
+    resp->setStatusCode(drogon::k200OK);
+    resp->setContentTypeString("image/gif");
     callback(resp);
 }
 

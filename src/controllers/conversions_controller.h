@@ -12,6 +12,7 @@ class ConversionsController : public drogon::HttpController<ConversionsControlle
     ADD_METHOD_TO(ConversionsController::GetList, "/api/v1/conversions", drogon::Get);
     ADD_METHOD_TO(ConversionsController::GetOne, "/api/v1/conversions/{id}", drogon::Get);
     ADD_METHOD_TO(ConversionsController::Delete, "/api/v1/conversions/{id}", drogon::Delete);
+    ADD_METHOD_TO(ConversionsController::GetResult, "/api/v1/conversions/{id}/result", drogon::Get);
     METHOD_LIST_END
 
     /** 新しい変換ジョブを作成する (POST /api/v1/conversions)。 */
@@ -31,6 +32,11 @@ class ConversionsController : public drogon::HttpController<ConversionsControlle
     void Delete(const drogon::HttpRequestPtr& req,
                 std::function<void(const drogon::HttpResponsePtr&)>&& callback,
                 const std::string& id);
+
+    /** 変換結果の GIF を取得する (GET /api/v1/conversions/{id}/result)。 */
+    void GetResult(const drogon::HttpRequestPtr& req,
+                   std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+                   const std::string& id);
 };
 
 }  // namespace gif_converter

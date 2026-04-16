@@ -27,6 +27,7 @@ struct ConversionJob {
     ConversionStatus status = ConversionStatus::Pending;
     std::string input_file_name;              /**< アップロードされた元ファイル名 */
     std::string input_file_path;              /**< サーバー上の保存パス */
+    std::string output_file_path;             /**< 変換後 GIF の保存パス */
     ConversionOptions options;                /**< 変換オプション */
     int progress = 0;                         /**< 進捗率 (0–100) */
     std::optional<std::string> error_message; /**< 失敗時のエラーメッセージ */

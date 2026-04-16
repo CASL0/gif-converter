@@ -258,4 +258,55 @@ TEST(ConversionsControllerTest, DeleteReturns404ForMissing) {
     done_future.wait();
 }
 
+TEST(ConversionsControllerTest, GetResultReturns404ForMissing) {
+    auto client = gif_converter::test::TestServer::CreateClient();
+
+    std::promise<void> done;
+    auto done_future = done.get_future();
+
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setPath("/api/v1/conversions/nonexistent-id/result");
+    req->setMethod(drogon::Get);
+
+    client->sendRequest(req,
+                        [&done](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
+                            EXPECT_EQ(result, drogon::ReqResult::Ok);
+                            EXPECT_EQ(resp->getStatusCode(), drogon::k404NotFound);
+
+                            auto json = resp->getJsonObject();
+                            ASSERT_NE(json, nullptr);
+                            EXPECT_EQ((*json)["type"].asString(), "not_found");
+
+                            done.set_value();
+                        });
+
+    done_future.wait();
+}
+
+TEST(ConversionsControllerTest, GetResultReturns409WhenNotCompleted) {
+    auto client = gif_converter::test::TestServer::CreateClient();
+    auto job_id = CreateJobAndGetId(client);
+
+    std::promise<void> done;
+    auto done_future = done.get_future();
+
+    auto req = drogon::HttpRequest::newHttpRequest();
+    req->setPath("/api/v1/conversions/" + job_id + "/result");
+    req->setMethod(drogon::Get);
+
+    client->sendRequest(req,
+                        [&done](drogon::ReqResult result, const drogon::HttpResponsePtr& resp) {
+                            EXPECT_EQ(result, drogon::ReqResult::Ok);
+                            EXPECT_EQ(resp->getStatusCode(), drogon::k409Conflict);
+
+                            auto json = resp->getJsonObject();
+                            ASSERT_NE(json, nullptr);
+                            EXPECT_EQ((*json)["type"].asString(), "not_ready");
+
+                            done.set_value();
+                        });
+
+    done_future.wait();
+}
+
 }  // namespace
