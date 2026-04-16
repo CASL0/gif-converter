@@ -7,6 +7,7 @@ add_executable(gif-converter-tests
     ../src/controllers/conversions_controller.cpp
     ../src/plugins/app_context.cpp
     ../src/repositories/in_memory_conversion_repository.cpp
+    ../src/services/gif_converter_service.cpp
 )
 
 target_compile_features(gif-converter-tests PRIVATE cxx_std_23)
@@ -18,6 +19,7 @@ target_include_directories(gif-converter-tests PRIVATE
 target_link_libraries(gif-converter-tests PRIVATE
     GTest::gtest
     Drogon::Drogon
+    PkgConfig::LIBAV
 )
 
 include(GoogleTest)

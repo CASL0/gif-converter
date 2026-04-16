@@ -8,8 +8,10 @@
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
+#include <thread>
 
 #include "plugins/app_context.h"
+#include "services/gif_converter_service.h"
 
 namespace gif_converter {
 
@@ -61,6 +63,7 @@ Json::Value JobToJson(const ConversionJob& job) {
 
 constexpr size_t kMaxUploadSize = 500 * 1024 * 1024; /**< 500MB */
 const std::string kUploadDir = "/tmp/gif-converter/uploads";
+const std::string kOutputDir = "/tmp/gif-converter/output";
 
 /** RFC 9457 形式のエラーレスポンスを生成する。 */
 drogon::HttpResponsePtr MakeErrorResponse(drogon::HttpStatusCode status_code,
@@ -136,8 +139,41 @@ void ConversionsController::Create(const drogon::HttpRequestPtr& req,
         .completed_at = std::nullopt,
     };
 
+    std::filesystem::create_directories(kOutputDir);
+    auto output_path = std::filesystem::path(kOutputDir) / (id + ".gif");
+    job.output_file_path = output_path.string();
+
     auto* ctx = drogon::app().getPlugin<AppContext>();
     ctx->GetConversionRepository().Add(job);
+
+    ctx->RunAsync([job_id = job.id, &repo = ctx->GetConversionRepository()](std::stop_token st) {
+        auto current = repo.Find(job_id);
+        if (!current || st.stop_requested()) {
+            return;
+        }
+
+        current->status = ConversionStatus::Processing;
+        repo.Update(*current);
+
+        if (st.stop_requested()) {
+            current->status = ConversionStatus::Failed;
+            current->error_message = "Conversion cancelled.";
+            current->completed_at = std::chrono::system_clock::now();
+            repo.Update(*current);
+            return;
+        }
+
+        auto result = GifConverterService::Convert(*current, current->output_file_path);
+        if (result) {
+            current->status = ConversionStatus::Completed;
+            current->progress = 100;
+        } else {
+            current->status = ConversionStatus::Failed;
+            current->error_message = result.error();
+        }
+        current->completed_at = std::chrono::system_clock::now();
+        repo.Update(*current);
+    });
 
     auto resp = drogon::HttpResponse::newHttpJsonResponse(JobToJson(job));
     resp->setStatusCode(drogon::k202Accepted);
