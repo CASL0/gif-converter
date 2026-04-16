@@ -40,6 +40,13 @@ class ConversionRepository {
     virtual int Count() const = 0;
 
     /**
+     * 既存のジョブを上書き更新する。
+     * @param job 更新後のジョブデータ (id で特定)
+     * @return 更新できた場合は true、存在しない場合は false
+     */
+    virtual bool Update(const ConversionJob& job) = 0;
+
+    /**
      * ID 指定でジョブを削除する。
      * @param id 削除対象のジョブ ID
      * @return 削除できた場合は true、存在しない場合は false

@@ -18,6 +18,7 @@ class InMemoryConversionRepository : public ConversionRepository {
     std::optional<ConversionJob> Find(const std::string& id) const override;
     std::vector<ConversionJob> List(int limit, int offset) const override;
     int Count() const override;
+    bool Update(const ConversionJob& job) override;
     bool Remove(const std::string& id) override;
 
    private:

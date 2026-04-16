@@ -44,6 +44,16 @@ int InMemoryConversionRepository::Count() const {
     return static_cast<int>(jobs_.size());
 }
 
+bool InMemoryConversionRepository::Update(const ConversionJob& job) {
+    std::scoped_lock lock(mutex_);
+    auto it = jobs_.find(job.id);
+    if (it == jobs_.end()) {
+        return false;
+    }
+    it->second = job;
+    return true;
+}
+
 bool InMemoryConversionRepository::Remove(const std::string& id) {
     std::scoped_lock lock(mutex_);
     auto it = jobs_.find(id);
