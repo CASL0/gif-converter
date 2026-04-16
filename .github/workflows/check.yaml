@@ -1,0 +1,30 @@
+---
+name: Check
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  format-check:
+    name: clang-format
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format
+
+      - name: Run clang-format
+        run: |
+          find src/ tests/ -name '*.h' -o -name '*.cpp' \
+            | xargs clang-format --dry-run --Werror
