@@ -2,17 +2,22 @@
 
 #include <drogon/HttpController.h>
 
-namespace gif_converter {
+namespace gif_converter::api::v1 {
+
+#define GIF_CONVERTER_CONVERSIONS_BASE "/api/v1/conversions"
 
 /** 変換ジョブの CRUD を提供するコントローラ (POST /api/v1/conversions)。 */
 class ConversionsController : public drogon::HttpController<ConversionsController> {
    public:
     METHOD_LIST_BEGIN
-    ADD_METHOD_TO(ConversionsController::Create, "/api/v1/conversions", drogon::Post);
-    ADD_METHOD_TO(ConversionsController::GetList, "/api/v1/conversions", drogon::Get);
-    ADD_METHOD_TO(ConversionsController::GetOne, "/api/v1/conversions/{id}", drogon::Get);
-    ADD_METHOD_TO(ConversionsController::Delete, "/api/v1/conversions/{id}", drogon::Delete);
-    ADD_METHOD_TO(ConversionsController::GetResult, "/api/v1/conversions/{id}/result", drogon::Get);
+    ADD_METHOD_TO(ConversionsController::Create, GIF_CONVERTER_CONVERSIONS_BASE, drogon::Post);
+    ADD_METHOD_TO(ConversionsController::GetList, GIF_CONVERTER_CONVERSIONS_BASE, drogon::Get);
+    ADD_METHOD_TO(ConversionsController::GetOne, GIF_CONVERTER_CONVERSIONS_BASE "/{id}",
+                  drogon::Get);
+    ADD_METHOD_TO(ConversionsController::Delete, GIF_CONVERTER_CONVERSIONS_BASE "/{id}",
+                  drogon::Delete);
+    ADD_METHOD_TO(ConversionsController::GetResult, GIF_CONVERTER_CONVERSIONS_BASE "/{id}/result",
+                  drogon::Get);
     METHOD_LIST_END
 
     /** 新しい変換ジョブを作成する (POST /api/v1/conversions)。 */
@@ -39,4 +44,6 @@ class ConversionsController : public drogon::HttpController<ConversionsControlle
                    const std::string& id);
 };
 
-}  // namespace gif_converter
+#undef GIF_CONVERTER_CONVERSIONS_BASE
+
+}  // namespace gif_converter::api::v1

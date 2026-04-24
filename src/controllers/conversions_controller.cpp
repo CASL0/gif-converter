@@ -13,7 +13,7 @@
 #include "plugins/app_context.h"
 #include "services/gif_converter_service.h"
 
-namespace gif_converter {
+namespace gif_converter::api::v1 {
 
 namespace {
 
@@ -288,4 +288,4 @@ void ConversionsController::GetResult(
     callback(resp);
 }
 
-}  // namespace gif_converter
+}  // namespace gif_converter::api::v1
